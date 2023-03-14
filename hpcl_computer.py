@@ -157,16 +157,16 @@ for i in range(NO_OF_BUTTON):
 canvas.bind('<Button-1>', click_event)
 canvas.create_circle_arc(PADDING_X, HEIGHT // 2, HEIGHT // 2 - PADDING_Y - WIDTH_BUTTON, fill= BG_COLOR, outline = "", start = -90, end = 90)
 
-
+# HP LOGO
 img = Image.open("images/HP.jpg")
 w, h = img.size
 img = ImageTk.PhotoImage(img)
 canvas.create_image(w // 2 + PADDING_X, HEIGHT // 2, image=img)
 
+# SHOWING IMAGES
 images =  []
 for i in range(NO_OF_BUTTON):
     img_ = Image.open(f"images/{i + 1}.png")
-    width, height = img.width(), img.height()
     images.append(ImageTk.PhotoImage(img_))
     angle = (START_ANGLE + i * ANGULAR_DISPLACEMENT + BUTTON_GAP * i + ANGULAR_DISPLACEMENT / 2) * math.pi / 180
     r = HEIGHT / 2 - PADDING_Y - WIDTH_BUTTON / 2

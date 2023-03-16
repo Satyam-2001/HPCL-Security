@@ -3,10 +3,10 @@ WIDTH = 1000
 HEIGHT = 600
 BG_COLOR = 'white'
 BUTTON_COLOR = 'grey'
-BUTTON_COLORS = 'blue'
-NO_OF_BUTTON = 8
+PRESSED_BUTTON_COLOR = 'red'
+NO_OF_BUTTON = 5
 BUTTON_GAP = 18 / (NO_OF_BUTTON - 1)
-WIDTH_BUTTON = WIDTH // 11
+WIDTH_BUTTON = WIDTH / 10
 DISTANCE_BW_DASHLINE_AND_BUTTON = 10
 PADDING_X = 2 * BUTTON_GAP
 PADDING_Y = 10
@@ -15,6 +15,8 @@ INTERVAL = 7 # in seconds
 # DERIVED VARIABLES
 START_ANGLE = -90
 ANGULAR_DISPLACEMENT = (180 - (NO_OF_BUTTON - 1) * BUTTON_GAP) / NO_OF_BUTTON
+OUTER_RADIUS = HEIGHT / 2 - PADDING_Y
+INNER_RADIUS = OUTER_RADIUS - WIDTH_BUTTON
 
 # STORAGE
 ITEM_BUTTON = []
@@ -26,9 +28,8 @@ import math
 from PIL import ImageTk, Image
 import pygame
 
-Active = 0
 B = [0] * NO_OF_BUTTON
-mplay = 1
+mplay = True
 
 pygame.init()
 root = Tk()
@@ -43,10 +44,6 @@ KName = ['ಎಚ್ಸಿಡಿ ಸಕ್ರಿಯಗೊಳಿಸಲಾಗಿದ
 
 C = [[0, 0, 0, 0] for _ in range(NO_OF_BUTTON)]
 
-def _create_circle(self, x, y, r, **kwargs):
-    return self.create_oval(x-r, y-r, x+r, y+r, **kwargs)
-Canvas.create_circle = _create_circle
-
 def _create_circle_arc(self, x, y, r, **kwargs):
     if "start" in kwargs and "end" in kwargs:
         kwargs["extent"] = kwargs["end"] - kwargs["start"]
@@ -54,24 +51,16 @@ def _create_circle_arc(self, x, y, r, **kwargs):
     return self.create_arc(x-r, y-r, x+r, y+r, **kwargs)
 Canvas.create_circle_arc = _create_circle_arc
 
-
 # CREATING ARC BUTTON
 def button(start, end):
-    return canvas.create_circle_arc(PADDING_X, HEIGHT // 2, HEIGHT // 2 - PADDING_Y, fill = BUTTON_COLOR, outline = "", start = start, end = end)
+    return canvas.create_circle_arc(PADDING_X, HEIGHT // 2, OUTER_RADIUS, fill = BUTTON_COLOR, outline = "", start = start, end = end)
 
 # CREATING CIRCULAR DASHED LINE
 def dashed_circle(start, end, dash):
     for i in range(start, end + 1, sum(dash)):
-        canvas.create_circle_arc(PADDING_X, HEIGHT // 2, HEIGHT // 2 - PADDING_Y - WIDTH_BUTTON - DISTANCE_BW_DASHLINE_AND_BUTTON, style="arc", outline = BUTTON_COLOR, width = 3, start = i, end = i + dash[0])
+        canvas.create_circle_arc(PADDING_X, HEIGHT // 2, INNER_RADIUS - DISTANCE_BW_DASHLINE_AND_BUTTON, style="arc", outline = BUTTON_COLOR, width = 3, start = i, end = i + dash[0])
 
-def on_remove(x):
-    global C
-    button_blur(x)
-    if x == check_list[(index - 1) % len(check_list)]:
-        pygame.mixer.music.stop()
-    try: BUTTON_CLEAR[x]()
-    except: pass
-
+# MUSIC PLAYER LOOP
 class MainLoop(Frame):
     global mplay
     def callback(self):
@@ -79,9 +68,10 @@ class MainLoop(Frame):
         if check_list and not pygame.mixer.music.get_busy():
             index %= len(check_list)
             x = check_list[index]
-            pygame.mixer.music.load(f'audio/m{x + 1}.wav')
-            if (mplay == 1):    
-                pygame.mixer.music.play()
+            try:
+                pygame.mixer.music.load(f'audio/m{x + 1}.wav')
+                if mplay: pygame.mixer.music.play()
+            except: print('music not loaded!!')
             index += 1
         self.after(1000, self.callback)
 
@@ -90,28 +80,39 @@ def click_event(event):
     global index
     x = (event.x - PADDING_X)
     y = (event.y - HEIGHT // 2)
+    if x < 0: return
     r = (x * x + y * y) ** 0.5
-    if not (HEIGHT // 2 - PADDING_Y - WIDTH_BUTTON <= r <= HEIGHT // 2 - PADDING_Y): return
-    theta = -(math.atan(y / x) * 180) / math.pi
-    for i in range(NO_OF_BUTTON):
-        start = START_ANGLE + i * ANGULAR_DISPLACEMENT + BUTTON_GAP * i
-        end = START_ANGLE + (i + 1) * ANGULAR_DISPLACEMENT + BUTTON_GAP * i
-        if start <= theta <= end:
-            if i not in check_list:
-                check_list.append(i)
-                button_in_action(i)
-                break
-            else:
-                j = check_list.index(i)
-                on_remove(i)
-                if j <= index:
-                    index -= 1
-                check_list.pop(j)
-            
+    if not (INNER_RADIUS <= r <= OUTER_RADIUS): return
+    theta = -math.atan(y / x) * 180 / math.pi - START_ANGLE
+    if theta % (ANGULAR_DISPLACEMENT + BUTTON_GAP) > ANGULAR_DISPLACEMENT: return
+    i = int(theta // (ANGULAR_DISPLACEMENT + BUTTON_GAP))
+    if i not in check_list:
+        check_list.append(i)
+        button_focus(i)
+    else:
+        j = check_list.index(i)
+        button_blur(i)
+        if j <= index:
+            index -= 1
+        check_list.pop(j)
 
-def button_in_action(x):
-    canvas.itemconfig(ITEM_BUTTON[x], fill = 'red')
-    font_size = str(HEIGHT // (5 * NO_OF_BUTTON))
+# REMOVING RECTANGULAR TEXT BOX
+def button_blur(x):
+    global C
+    canvas.itemconfig(ITEM_BUTTON[x], fill = BUTTON_COLOR)
+    canvas.delete(C[x][0])
+    canvas.delete(C[x][1])
+    canvas.delete(C[x][2])
+    canvas.delete(C[x][3])
+    if x == check_list[(index - 1) % len(check_list)]:
+        pygame.mixer.music.stop()
+    try: BUTTON_CLEAR[x]()
+    except: pass
+            
+# CREATING RECTANGULAR TEXT BOX
+def button_focus(x):
+    canvas.itemconfig(ITEM_BUTTON[x], fill = PRESSED_BUTTON_COLOR)
+    font_size = str(HEIGHT // (6 * NO_OF_BUTTON))
     margin_h = WIDTH // 12
     start_h = HEIGHT // 2 + margin_h // 1.5
     end_h = WIDTH - margin_h
@@ -127,35 +128,28 @@ def button_in_action(x):
     C[x][2] = canvas.create_text(text_w, text_h + int(font_size) + text_margin, text=HName[x] ,font = ("black 18", font_size))
     C[x][3] = canvas.create_text(text_w, text_h + 2 * (int(font_size) + text_margin), text=KName[x] ,font = ("black 18", font_size))
 
-def button_blur(x):
-    canvas.itemconfig(ITEM_BUTTON[x], fill = BUTTON_COLOR)
-    canvas.delete(C[x][0])
-    canvas.delete(C[x][1])
-    canvas.delete(C[x][2])
-    canvas.delete(C[x][3])
-
+# TAKING ACTION ON THE INPUT SIGNAL [NOT FOR PC]
 def sensor_event(sensor_pos, action):
     global index
     if action:
         if sensor_pos not in check_list:
-            button_in_action(sensor_pos)
+            button_focus(sensor_pos)
             check_list.append(sensor_pos)
     elif sensor_pos in check_list:
         j = check_list.index(sensor_pos)
-        on_remove(sensor_pos)
+        button_blur(sensor_pos)
         if j <= index:
             index -= 1
         check_list.pop(j)
-        
 
 # CREATING BUTTONS
 for i in range(NO_OF_BUTTON):
-    start = START_ANGLE + i * ANGULAR_DISPLACEMENT + BUTTON_GAP * i
-    end = START_ANGLE + (i + 1) * ANGULAR_DISPLACEMENT + BUTTON_GAP * i
+    start = START_ANGLE + i * (ANGULAR_DISPLACEMENT + BUTTON_GAP)
+    end = start + ANGULAR_DISPLACEMENT
     ITEM_BUTTON.append(button(start, end))
 
 canvas.bind('<Button-1>', click_event)
-canvas.create_circle_arc(PADDING_X, HEIGHT // 2, HEIGHT // 2 - PADDING_Y - WIDTH_BUTTON, fill= BG_COLOR, outline = "", start = -90, end = 90)
+canvas.create_circle_arc(PADDING_X, HEIGHT // 2, INNER_RADIUS, fill= BG_COLOR, outline = "", start = -90, end = 90)
 
 # HP LOGO
 img = Image.open("images/HP.jpg")
@@ -168,8 +162,8 @@ images =  []
 for i in range(NO_OF_BUTTON):
     img_ = Image.open(f"images/{i + 1}.png")
     images.append(ImageTk.PhotoImage(img_))
-    angle = (START_ANGLE + i * ANGULAR_DISPLACEMENT + BUTTON_GAP * i + ANGULAR_DISPLACEMENT / 2) * math.pi / 180
-    r = HEIGHT / 2 - PADDING_Y - WIDTH_BUTTON / 2
+    angle = (START_ANGLE + i * (ANGULAR_DISPLACEMENT + BUTTON_GAP) + ANGULAR_DISPLACEMENT / 2) * math.pi / 180
+    r = INNER_RADIUS + WIDTH_BUTTON / 2
     x = PADDING_X +  r * math.cos(angle)
     y = HEIGHT / 2 + r * math.sin(angle)
     canvas.create_image(x, y, image=images[i])
